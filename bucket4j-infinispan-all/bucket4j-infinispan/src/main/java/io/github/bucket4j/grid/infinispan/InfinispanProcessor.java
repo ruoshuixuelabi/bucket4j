@@ -54,8 +54,8 @@ public class InfinispanProcessor<K, R> implements
             // it is the marker to remove bucket state
             if (entry.find().isPresent()) {
                 entry.remove();
-                return new byte[0];
             }
+            return new byte[0];
         }
 
         return new AbstractBinaryTransaction(requestBytes) {

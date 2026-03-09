@@ -150,6 +150,38 @@ public abstract class AbstractDistributedBucketTest {
         assertTrue(proxyManager.getProxyConfiguration(key).isPresent());
         proxyManager.removeProxy(key);
         assertFalse(proxyManager.getProxyConfiguration(key).isPresent());
+
+        // test that removal by not existed key does not throw exception
+        // test-case for https://github.com/bucket4j/bucket4j/issues/575
+        K notExistedKey = spec.generateRandomKey();
+        proxyManager.removeProxy(notExistedKey);
+        assertTrue(proxyManager.getProxyConfiguration(notExistedKey).isEmpty());
+    }
+
+    @MethodSource("specs")
+    @ParameterizedTest
+    public <K, P extends ProxyManager<K>, B extends AbstractProxyManagerBuilder<K, P, B>> void testBucketRemovalAsync(ProxyManagerSpec<K, P, B> spec) throws ExecutionException, InterruptedException {
+        ProxyManager<K> proxyManager = spec.builder.get().build();
+        if (!proxyManager.isAsyncModeSupported()) {
+            return;
+        }
+        K key = spec.generateRandomKey();
+
+        BucketConfiguration configuration = BucketConfiguration.builder()
+                .addLimit(Bandwidth.simple(4, Duration.ofHours(1)))
+                .build();
+        BucketProxy bucket = proxyManager.builder().build(key, configuration);
+        bucket.getAvailableTokens();
+
+        assertTrue(proxyManager.getProxyConfiguration(key).isPresent());
+        proxyManager.asAsync().removeProxy(key).get();
+        assertFalse(proxyManager.asAsync().getProxyConfiguration(key).get().isPresent());
+
+        // test that removal by not existed key does not throw exception
+        // test-case for https://github.com/bucket4j/bucket4j/issues/575
+        K notExistedKey = spec.generateRandomKey();
+        proxyManager.asAsync().removeProxy(notExistedKey).get();
+        assertTrue(proxyManager.asAsync().getProxyConfiguration(notExistedKey).get().isEmpty());
     }
 
     @MethodSource("specs")
@@ -572,6 +604,8 @@ public abstract class AbstractDistributedBucketTest {
         long overdraftNanos = bucket.consumeIgnoringRateLimits(121_000);
         assertEquals(overdraftNanos, TimeUnit.MINUTES.toNanos(120));
     }
+
+
 
     @MethodSource("specs")
     @ParameterizedTest
